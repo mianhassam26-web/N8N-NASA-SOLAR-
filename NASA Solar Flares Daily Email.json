@@ -1,0 +1,145 @@
+{
+  "name": "NASA Solar Flares Daily Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "75bd7130-700a-4707-ba80-4ab4aa582746",
+      "name": "Daily 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.nasa.gov/DONKI/FLR",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nasaApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "startDate",
+              "value": "={{ $now.minus({ days: 7 }).toFormat(\"yyyy-MM-dd\") }}"
+            },
+            {
+              "name": "endDate",
+              "value": "={{ $now.toFormat(\"yyyy-MM-dd\") }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c0376a65-e26d-4c93-9d84-5ac50e294cd8",
+      "name": "Fetch Solar Flares",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "nasaApi": {
+          "id": "7nC3j1JsnF5uzpyD",
+          "name": "NASA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const flares = $input.all()\n  .map(i => i.json)\n  .filter(f => f && Object.keys(f).length > 0 && f.flrID);\n\nconst start = $now.minus({ days: 7 }).toFormat('yyyy-MM-dd');\nconst end = $now.toFormat('yyyy-MM-dd');\n\nlet html;\nif (flares.length === 0) {\n  html = '<h2>☀️ NASA Solar Flares</h2>' +\n    '<p>No solar flares reported between ' + start + ' and ' + end + '.</p>';\n} else {\n  const rows = flares.map(f =>\n    '<tr>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.classType || '-') + '</td>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.beginTime || '-') + '</td>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.peakTime || '-') + '</td>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.sourceLocation || '-') + '</td>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.activeRegionNum || '-') + '</td>' +\n    '<td style=\"padding:6px 10px;border:1px solid #ddd;\">' + (f.link ? '<a href=\"' + f.link + '\">details</a>' : '-') + '</td>' +\n    '</tr>'\n  ).join('');\n\n  html = '<h2>☀️ NASA Solar Flares (' + flares.length + ')</h2>' +\n    '<p>Reported between ' + start + ' and ' + end + '.</p>' +\n    '<table style=\"border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;\">' +\n    '<thead><tr>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Class</th>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Begin</th>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Peak</th>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Location</th>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Region</th>' +\n    '<th style=\"padding:6px 10px;border:1px solid #ddd;background:#f5f5f5;\">Link</th>' +\n    '</tr></thead><tbody>' + rows + '</tbody></table>';\n}\n\nreturn [{ json: { html, count: flares.length, start, end } }];"
+      },
+      "id": "4116884d-3736-4f7d-88a4-9802cf57280c",
+      "name": "Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "mianhassam26@gmail.com",
+        "subject": "=☀️ NASA Solar Flares — {{ $json.count }} in the last 7 days",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "b31ea7f2-54be-4a20-be14-b49c67ca28f0",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        0
+      ],
+      "webhookId": "e7e3cc2b-81ed-4657-beb3-c0a117c4de66",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TQywj1esAIKkm5Jf",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch Solar Flares",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Solar Flares": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d33757dc-6c82-4112-8805-6cb1f4f4dc50",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3f40e528070f02507912d1cc44dbf19d7a0eb976bc60f4cc745429e9d4c27a06"
+  },
+  "nodeGroups": [],
+  "id": "Ix5rtYXb1D5l4iti",
+  "tags": []
+}
